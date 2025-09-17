@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from "react";
 import KitchenQuestion from "./KitchenQuestion";
 import IngredientsList from "./IngredientsList";
 import ClaudeRecipe from "./ClaudeRecipe";
-import { getRecipeFromClaude } from "../ai";
+import { getRecipeFromClaude } from "../utils/ai";
 
 // Lista de términos no comestibles
 const forbidden = [

@@ -21,7 +21,7 @@ const ClaudeRecipe = ({ receta }) => {
   return (
     <section className="p-6 bg-yellow-50 rounded-lg shadow-lg">
       <h2 className="text-2xl font-bold text-gray-800 mb-4 text-center">
-        El Chef Morfitron Recomienda:
+        El Chef Claude Recomienda:
       </h2>
       <ReactMarkdown
         components={{

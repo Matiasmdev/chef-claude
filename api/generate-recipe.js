@@ -79,7 +79,8 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { ingredients } = JSON.parse(req.body);
+    const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+    const { ingredients } = body;
 
     if (!Array.isArray(ingredients) || ingredients.length === 0) {
       return res.status(400).json({ error: "Ingredientes inválidos" });

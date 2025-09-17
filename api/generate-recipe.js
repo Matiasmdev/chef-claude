@@ -37,35 +37,40 @@ Al final de tu respuesta, incluye exactamente **una** frase de cierre, elegida *
 `;
 
 const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_CLAUDE_API_KEY, // seguro, solo backend
+  apiKey: process.env.ANTHROPIC_CLAUDE_API_KEY,
 });
 
 async function getRecipeFromClaude(ingredientsArr) {
   const ingredientsString = ingredientsArr.join(", ");
 
-  const response = await anthropic.messages.create({
-    model: "claude-3-haiku-20240307",
-    system: SYSTEM_PROMPT,
-    max_tokens: 1024,
-    messages: [
-      {
-        role: "user",
-        content: `Tengo: ${ingredientsString}. ¡Dame la receta formateada como indiqué!`,
-      },
-    ],
-  });
+  try {
+    const response = await anthropic.messages.create({
+      model: "claude-3-haiku-20240307",
+      system: SYSTEM_PROMPT,
+      max_tokens: 1024,
+      messages: [
+        {
+          role: "user",
+          content: `Tengo: ${ingredientsString}. ¡Dame la receta formateada como indiqué!`,
+        },
+      ],
+    });
 
-  // Procesar respuesta
-  if (typeof response.content === "string") return response.content;
-  if (Array.isArray(response.content))
-    return response.content.map((b) => b.text).join("");
-  if (
-    Array.isArray(response.choices) &&
-    typeof response.choices[0]?.message?.content === "string"
-  )
-    return response.choices[0].message.content;
+    // Procesar respuesta
+    if (typeof response.content === "string") return response.content;
+    if (Array.isArray(response.content))
+      return response.content.map((b) => b.text).join("");
+    if (
+      Array.isArray(response.choices) &&
+      typeof response.choices[0]?.message?.content === "string"
+    )
+      return response.choices[0].message.content;
 
-  throw new Error("Formato de respuesta inesperado: " + JSON.stringify(response));
+    throw new Error("Formato de respuesta inesperado: " + JSON.stringify(response));
+  } catch (err) {
+    console.error("Error en getRecipeFromClaude:", err);
+    throw err;
+  }
 }
 
 export default async function handler(req, res) {
@@ -75,10 +80,24 @@ export default async function handler(req, res) {
 
   try {
     const { ingredients } = JSON.parse(req.body);
+
+    if (!Array.isArray(ingredients) || ingredients.length === 0) {
+      return res.status(400).json({ error: "Ingredientes inválidos" });
+    }
+
     const receta = await getRecipeFromClaude(ingredients);
+
+    // Siempre devolver JSON
     res.status(200).json({ receta });
   } catch (err) {
     console.error("Error en /api/generate-recipe:", err);
-    res.status(500).json({ error: err.message });
+
+    const message =
+      typeof err === "string"
+        ? err
+        : err?.message || "Error desconocido en serverless";
+
+    // Devolver JSON aunque haya error
+    res.status(500).json({ error: message });
   }
 }

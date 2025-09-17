@@ -1,3 +1,4 @@
+// src/utils/ai.js
 export async function getRecipeFromClaude(ingredients) {
   const res = await fetch("/api/generate-recipe", {
     method: "POST",
@@ -7,7 +8,7 @@ export async function getRecipeFromClaude(ingredients) {
 
   let data;
   try {
-    data = await res.json();
+    data = await res.json(); // intentar parsear JSON
   } catch {
     throw new Error("El servidor no devolvió un JSON válido");
   }

@@ -1,5 +1,7 @@
 // api/generate-recipe.js
 import { Anthropic } from "@anthropic-ai/sdk";
+import { Redis } from "@upstash/redis";
+import fetch from "node-fetch"; // necesario si Vercel no tiene fetch global
 
 const SYSTEM_PROMPT = `
 Eres un asistente que recibe una lista de ingredientes de un usuario y sugiere una receta que puede preparar  
@@ -40,6 +42,11 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_CLAUDE_API_KEY,
 });
 
+const redis = new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN,
+});
+
 async function getRecipeFromClaude(ingredientsArr) {
   const ingredientsString = ingredientsArr.join(", ");
 
@@ -56,7 +63,6 @@ async function getRecipeFromClaude(ingredientsArr) {
       ],
     });
 
-    // Procesar respuesta
     if (typeof response.content === "string") return response.content;
     if (Array.isArray(response.content))
       return response.content.map((b) => b.text).join("");
@@ -73,32 +79,80 @@ async function getRecipeFromClaude(ingredientsArr) {
   }
 }
 
+// Validar ReCaptcha v3
+async function verifyRecaptcha(token) {
+  const secretKey = process.env.RECAPTCHA_SECRET_KEY;
+  const url = `https://www.google.com/recaptcha/api/siteverify?secret=${secretKey}&response=${token}`;
+  const res = await fetch(url, { method: "POST" });
+  const data = await res.json();
+  return data.success && data.score && data.score >= 0.5;
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
   try {
-    const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-    const { ingredients } = body;
+    const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
+    const { ingredients, userId, recaptchaToken } = body;
+
+    // ✅ Validar token secreto
+    const secret = req.headers['x-secret-key'];
+    if (secret !== process.env.SECRET_FRONTEND_KEY) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
 
     if (!Array.isArray(ingredients) || ingredients.length === 0) {
       return res.status(400).json({ error: "Ingredientes inválidos" });
     }
 
-    const receta = await getRecipeFromClaude(ingredients);
+    if (!userId) {
+      return res.status(400).json({ error: "userId es requerido" });
+    }
 
-    // Siempre devolver JSON
+    if (!recaptchaToken || !(await verifyRecaptcha(recaptchaToken))) {
+      return res.status(403).json({ error: "Captcha inválido" });
+    }
+
+    // 🔹 Rate limit: 3 llamadas / 24h
+    const key = `rate:${userId}`;
+    const usage = parseInt(await redis.get(key)) || 0;
+
+    if (usage >= 3) {
+      return res.status(429).json({ error: "Has alcanzado el límite de 3 recetas por 24 horas" });
+    }
+
+    if (usage === 0) {
+      await redis.set(key, 1, { ex: 86400 }); // 24h
+    } else {
+      await redis.incr(key);
+    }
+
+    // 🔹 Cache de recetas 5 minutos
+    const cacheKey = `recipe:${ingredients.join(',').toLowerCase()}`;
+    let receta = await redis.get(cacheKey);
+
+    if (!receta) {
+      receta = await getRecipeFromClaude(ingredients);
+      await redis.set(cacheKey, receta, { ex: 300 }); // 5 minutos
+    }
+
+    // 🔹 Registro para dashboard
+    const logKey = `log:${userId}`;
+    await redis.lpush(logKey, JSON.stringify({
+      ingredients,
+      timestamp: Date.now(),
+    }));
+
     res.status(200).json({ receta });
   } catch (err) {
     console.error("Error en /api/generate-recipe:", err);
-
     const message =
       typeof err === "string"
         ? err
         : err?.message || "Error desconocido en serverless";
 
-    // Devolver JSON aunque haya error
     res.status(500).json({ error: message });
   }
 }

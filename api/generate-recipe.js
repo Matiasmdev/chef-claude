@@ -94,7 +94,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
+    const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
     const { ingredients, userId, recaptchaToken } = body;
 
     // ✅ Validar token secreto

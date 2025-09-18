@@ -15,6 +15,7 @@
     "@tailwindcss/vite": "^4.0.9",
     "@upstash/ratelimit": "^2.0.6",
     "@upstash/redis": "^1.35.3",
+    "canvas-confetti": "^1.9.3",
     "lucide-react": "^0.511.0",
     "node-fetch": "^3.3.2",
     "react": "^19.0.0",

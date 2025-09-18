@@ -10,10 +10,10 @@ const IngredientsList = ({ ingredientes, sectionRef }) => {
   const [receta, setReceta] = useState("");
   const [error, setError] = useState("");
   const [showConfetti, setShowConfetti] = useState(false);
-  const [confettiPos, setConfettiPos] = useState({ x: 0, y: 0 });
 
   const recetaRef = useRef(null);
 
+  // Generar o cargar userId
   useEffect(() => {
     let storedId = localStorage.getItem("userId");
     if (!storedId) {
@@ -29,12 +29,13 @@ const IngredientsList = ({ ingredientes, sectionRef }) => {
     setError("");
 
     try {
-      // Ejecutar ReCaptcha
+      // ReCAPTCHA token
       const recaptchaToken = await window.grecaptcha.execute(
         import.meta.env.VITE_RECAPTCHA_SITE_KEY,
         { action: "generate_recipe" }
       );
 
+      // Generar receta
       const data = await getRecipeFromClaude({
         ingredients: ingredientes,
         userId,
@@ -49,22 +50,15 @@ const IngredientsList = ({ ingredientes, sectionRef }) => {
     }
   };
 
+  // Scroll y confetti después de renderizar la receta
   useEffect(() => {
     if (receta && recetaRef.current) {
       // Scroll automático
       recetaRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
 
-      // Esperar un pequeño delay para que el scroll termine antes de mostrar confetti
-      const timeout = setTimeout(() => {
-        const rect = recetaRef.current.getBoundingClientRect();
-        setConfettiPos({
-          x: rect.left + rect.width / 2 + window.scrollX,
-          y: rect.top + rect.height / 2 + window.scrollY,
-        });
-        setShowConfetti(true);
-        setTimeout(() => setShowConfetti(false), 3000);
-      }, 300); // 300ms de espera para scroll
-
+      // Mostrar confetti
+      setShowConfetti(true);
+      const timeout = setTimeout(() => setShowConfetti(false), 4000);
       return () => clearTimeout(timeout);
     }
   }, [receta]);
@@ -108,13 +102,14 @@ const IngredientsList = ({ ingredientes, sectionRef }) => {
           {error && <p className="text-red-600 mt-2 font-medium">{error}</p>}
 
           {receta && (
-            <div ref={recetaRef} className="mt-4">
+            <div ref={recetaRef} className="mt-4 relative">
               <ClaudeRecipe receta={receta} />
             </div>
           )}
         </div>
       )}
 
+      {/* Confetti */}
       {showConfetti && (
         <Confetti
           width={window.innerWidth}
@@ -122,12 +117,6 @@ const IngredientsList = ({ ingredientes, sectionRef }) => {
           numberOfPieces={200}
           recycle={false}
           gravity={0.3}
-          confettiSource={{
-            x: confettiPos.x,
-            y: confettiPos.y,
-            w: 10,
-            h: 10,
-          }}
         />
       )}
     </section>

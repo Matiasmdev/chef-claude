@@ -50,7 +50,7 @@ const IngredientsList = ({ ingredientes, sectionRef }) => {
 
     try {
       const recaptchaToken = await window.grecaptcha.execute(
-        process.env.VITE_RECAPTCHA_SITE_KEY,
+        import.meta.env.VITE_RECAPTCHA_SITE_KEY,
         { action: "generate_recipe" }
       );
 

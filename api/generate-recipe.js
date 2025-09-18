@@ -39,7 +39,7 @@ Al final de tu respuesta, incluye exactamente **una** frase de cierre, elegida *
 `;
 
 const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_CLAUDE_API_KEY,
+  apiKey: process.env.ANTHROPIC_CLAUDE_API_KEY, // backend
 });
 
 const redis = new Redis({
@@ -66,10 +66,7 @@ async function getRecipeFromClaude(ingredientsArr) {
     if (typeof response.content === "string") return response.content;
     if (Array.isArray(response.content))
       return response.content.map((b) => b.text).join("");
-    if (
-      Array.isArray(response.choices) &&
-      typeof response.choices[0]?.message?.content === "string"
-    )
+    if (Array.isArray(response.choices) && typeof response.choices[0]?.message?.content === "string")
       return response.choices[0].message.content;
 
     throw new Error("Formato de respuesta inesperado: " + JSON.stringify(response));
@@ -79,9 +76,9 @@ async function getRecipeFromClaude(ingredientsArr) {
   }
 }
 
-// Validar ReCaptcha v3
+// Validar ReCaptcha v3 (solo backend)
 async function verifyRecaptcha(token) {
-  const secretKey = process.env.RECAPTCHA_SECRET_KEY;
+  const secretKey = process.env.RECAPTCHA_SECRET_KEY; // backend
   const url = `https://www.google.com/recaptcha/api/siteverify?secret=${secretKey}&response=${token}`;
   const res = await fetch(url, { method: "POST" });
   const data = await res.json();
@@ -94,11 +91,11 @@ export default async function handler(req, res) {
   }
 
   try {
-    const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+    const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
     const { ingredients, userId, recaptchaToken } = body;
 
-    // ✅ Validar token secreto
-    const secret = req.headers['x-secret-key'];
+    // ✅ Validar token secreto inventado por nosotros
+    const secret = req.headers["x-secret-key"];
     if (secret !== process.env.SECRET_FRONTEND_KEY) {
       return res.status(401).json({ error: "Unauthorized" });
     }
@@ -115,44 +112,29 @@ export default async function handler(req, res) {
       return res.status(403).json({ error: "Captcha inválido" });
     }
 
-    // 🔹 Rate limit: 3 llamadas / 24h
+    // 🔹 Rate limit: 3 recetas / 24h
     const key = `rate:${userId}`;
     const usage = parseInt(await redis.get(key)) || 0;
-
-    if (usage >= 3) {
-      return res.status(429).json({ error: "Has alcanzado el límite de 3 recetas por 24 horas" });
-    }
-
-    if (usage === 0) {
-      await redis.set(key, 1, { ex: 86400 }); // 24h
-    } else {
-      await redis.incr(key);
-    }
+    if (usage >= 3) return res.status(429).json({ error: "Has alcanzado el límite de 3 recetas por 24 horas" });
+    if (usage === 0) await redis.set(key, 1, { ex: 86400 }); // 24h
+    else await redis.incr(key);
 
     // 🔹 Cache de recetas 5 minutos
-    const cacheKey = `recipe:${ingredients.join(',').toLowerCase()}`;
+    const cacheKey = `recipe:${ingredients.join(",").toLowerCase()}`;
     let receta = await redis.get(cacheKey);
-
     if (!receta) {
       receta = await getRecipeFromClaude(ingredients);
       await redis.set(cacheKey, receta, { ex: 300 }); // 5 minutos
     }
 
-    // 🔹 Registro para dashboard
+    // 🔹 Log para dashboard
     const logKey = `log:${userId}`;
-    await redis.lpush(logKey, JSON.stringify({
-      ingredients,
-      timestamp: Date.now(),
-    }));
+    await redis.lpush(logKey, JSON.stringify({ ingredients, timestamp: Date.now() }));
 
     res.status(200).json({ receta });
   } catch (err) {
     console.error("Error en /api/generate-recipe:", err);
-    const message =
-      typeof err === "string"
-        ? err
-        : err?.message || "Error desconocido en serverless";
-
+    const message = typeof err === "string" ? err : err?.message || "Error desconocido en serverless";
     res.status(500).json({ error: message });
   }
 }

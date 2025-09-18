@@ -1,4 +1,3 @@
-// src/components/IngredientsList.jsx
 import React, { useState, useEffect, useRef } from "react";
 import { getRecipeFromClaude } from "../utils/ai";
 import { v4 as uuidv4 } from "uuid";
@@ -12,9 +11,9 @@ const IngredientsList = ({ ingredientes, sectionRef }) => {
   const [error, setError] = useState("");
   const [showConfetti, setShowConfetti] = useState(false);
   const [showDashboard, setShowDashboard] = useState(false);
-  const [dashboardData, setDashboardData] = useState(null);
+  const titleRef = useRef(null);
+  const secretBtnRef = useRef(null);
 
-  // Generar o recuperar userId
   useEffect(() => {
     let storedId = localStorage.getItem("userId");
     if (!storedId) {
@@ -24,37 +23,53 @@ const IngredientsList = ({ ingredientes, sectionRef }) => {
     setUserId(storedId);
   }, []);
 
+  const abrirDashboard = () => setShowDashboard(true);
+  const cerrarDashboard = () => setShowDashboard(false);
+
+  useEffect(() => {
+    // Colocar el botón justo debajo de la letra Q
+    if (titleRef.current && secretBtnRef.current) {
+      const range = document.createRange();
+      const textNode = titleRef.current.firstChild;
+      range.setStart(textNode, 2); // la Q es la segunda letra (índice 2)
+      range.setEnd(textNode, 3);
+      const rect = range.getBoundingClientRect();
+      secretBtnRef.current.style.position = "absolute";
+      secretBtnRef.current.style.left = `${rect.left + window.scrollX}px`;
+      secretBtnRef.current.style.top = `${rect.bottom + window.scrollY}px`;
+      secretBtnRef.current.style.width = "16px";
+      secretBtnRef.current.style.height = "16px";
+      secretBtnRef.current.style.opacity = 0;
+    }
+  }, [titleRef.current]);
+
   const obtenerReceta = async () => {
     if (!userId) return;
     setLoading(true);
     setError("");
 
     try {
-      // Ejecutar ReCaptcha v3
       const recaptchaToken = await window.grecaptcha.execute(
         process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY,
         { action: "generate_recipe" }
       );
 
       const data = await getRecipeFromClaude({
-        ingredients,
+        ingredients: ingredientes,
         userId,
         recaptchaToken,
       });
 
       setReceta(data.receta);
 
-      // Confetti solo en la primera receta
       const firstRecipeKey = `firstRecipeDone:${userId}`;
       const isFirst = !localStorage.getItem(firstRecipeKey);
       if (isFirst) {
         setShowConfetti(true);
         localStorage.setItem(firstRecipeKey, "true");
         setTimeout(() => setShowConfetti(false), 5000);
-        setTimeout(() => alert("Tu primera receta está lista 🎉"), 5000);
       }
 
-      // Scroll automático hacia la receta
       sectionRef?.current?.scrollIntoView({ behavior: "smooth" });
     } catch (err) {
       setError(err.message || "Error desconocido al generar la receta");
@@ -63,44 +78,17 @@ const IngredientsList = ({ ingredientes, sectionRef }) => {
     }
   };
 
-  // Función para abrir el dashboard secreto
-  const abrirDashboard = async () => {
-    const secretKey = prompt(
-      "Ingrese su SECRET_FRONTEND_KEY para acceder al dashboard:"
-    );
-    if (!secretKey) return alert("No se ingresó clave");
-
-    try {
-      const res = await fetch("/api/dashboard", {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          "x-secret-key": secretKey,
-        },
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Error al cargar dashboard");
-      setDashboardData(data);
-      setShowDashboard(true);
-    } catch (err) {
-      alert(err.message);
-    }
-  };
-
   return (
     <section className="space-y-4 relative">
-      {showConfetti && (
-        <Confetti width={window.innerWidth} height={window.innerHeight} />
-      )}
+      {showConfetti && <Confetti width={window.innerWidth} height={window.innerHeight} />}
 
-      {/* Botón secreto invisible en esquina superior izquierda */}
-      <button
-        onClick={abrirDashboard}
-        className="absolute top-2 left-2 w-4 h-4 opacity-0"
-        title="Botón secreto"
-      ></button>
+      <h2
+        ref={titleRef}
+        className="text-2xl font-bold text-gray-800"
+      >
+        ¿Qué tienes en la cocina hoy?
+      </h2>
 
-      <h2 className="text-2xl font-bold text-gray-800">Ingredientes a mano:</h2>
       <ul className="list-disc pl-5 space-y-1">
         {ingredientes.length > 0 ? (
           ingredientes.map((ing) => (
@@ -144,42 +132,28 @@ const IngredientsList = ({ ingredientes, sectionRef }) => {
         </div>
       )}
 
-      {/* Modal secreto */}
+      {/* Botón secreto */}
+      <button
+        ref={secretBtnRef}
+        onClick={abrirDashboard}
+        title="Botón secreto"
+      />
+
+      {/* Modal del dashboard */}
       {showDashboard && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl w-11/12 max-w-2xl p-6 relative">
-            <h2 className="text-xl font-bold mb-4">Dashboard Secreto</h2>
+          <div className="bg-white p-6 rounded-xl w-11/12 max-w-xl relative">
             <button
-              onClick={() => setShowDashboard(false)}
-              className="absolute top-2 right-2 text-gray-500 hover:text-gray-900 font-bold"
+              onClick={cerrarDashboard}
+              className="absolute top-4 right-4 text-gray-500 hover:text-gray-800"
             >
               ✖
             </button>
-
-            {dashboardData ? (
-              <div className="overflow-auto max-h-96">
-                {dashboardData.logs.map((log, idx) => (
-                  <div
-                    key={idx}
-                    className="mb-2 p-2 border border-gray-200 rounded"
-                  >
-                    <p>
-                      <strong>UserID:</strong> {log.userId}
-                    </p>
-                    <p>
-                      <strong>Ingredientes:</strong>{" "}
-                      {log.ingredients.join(", ")}
-                    </p>
-                    <p>
-                      <strong>Fecha:</strong>{" "}
-                      {new Date(log.timestamp).toLocaleString()}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p>Cargando datos...</p>
-            )}
+            <h2 className="text-xl font-bold mb-4">Dashboard Secreto</h2>
+            <p>Recetas generadas hoy: 10</p>
+            <p>Usuarios activos: 3</p>
+            <p>Uso total: 42 recetas</p>
+            {/* Aquí podés mostrar datos dinámicos desde Redis o API */}
           </div>
         </div>
       )}

@@ -1,3 +1,4 @@
+// src/components/IngredientsList.jsx
 import React, { useState, useEffect, useRef } from "react";
 import { getRecipeFromClaude } from "../utils/ai";
 import { v4 as uuidv4 } from "uuid";
@@ -11,8 +12,10 @@ const IngredientsList = ({ ingredientes, sectionRef }) => {
   const [error, setError] = useState("");
   const [showConfetti, setShowConfetti] = useState(false);
   const [confettiPos, setConfettiPos] = useState({ x: 0, y: 0 });
-  const recetaRef = useRef(null); // referencia al área donde aparece la receta
 
+  const recetaRef = useRef(null);
+
+  // Generar o recuperar userId
   useEffect(() => {
     let storedId = localStorage.getItem("userId");
     if (!storedId) {
@@ -28,12 +31,9 @@ const IngredientsList = ({ ingredientes, sectionRef }) => {
     setError("");
 
     try {
-      if (!window.grecaptcha) {
-        throw new Error("reCAPTCHA no se ha cargado aún");
-      }
-
+      // Ejecutar ReCaptcha v3
       const recaptchaToken = await window.grecaptcha.execute(
-        import.meta.env.VITE_RECAPTCHA_SITE_KEY,
+        process.env.VITE_RECAPTCHA_SITE_KEY,
         { action: "generate_recipe" }
       );
 
@@ -45,23 +45,21 @@ const IngredientsList = ({ ingredientes, sectionRef }) => {
 
       setReceta(data.receta);
 
-      // 🟢 Primero hacemos scroll hacia la receta
+      // Scroll hacia la receta
       setTimeout(() => {
-        sectionRef?.current?.scrollIntoView({ behavior: "smooth" });
+        recetaRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
 
-        // 🎉 Luego de 600ms (cuando termina el scroll) lanzamos confetti
-        setTimeout(() => {
-          if (recetaRef.current) {
-            const rect = recetaRef.current.getBoundingClientRect();
-            setConfettiPos({
-              x: rect.left + rect.width / 2,
-              y: rect.top + window.scrollY + rect.height / 2,
-            });
-          }
-          setShowConfetti(true);
-          setTimeout(() => setShowConfetti(false), 3000);
-        }, 600);
-      }, 100);
+        // Posición del confetti justo en la parte superior de la receta
+        const rect = recetaRef.current.getBoundingClientRect();
+        setConfettiPos({
+          x: rect.left + rect.width / 2 + window.scrollX,
+          y: rect.top + rect.height / 2 + window.scrollY,
+        });
+
+        setShowConfetti(true);
+        setTimeout(() => setShowConfetti(false), 3000); // Confetti dura 3s
+      }, 100); // pequeño delay para asegurar que la receta se renderizó
+
     } catch (err) {
       setError(err.message || "Error desconocido al generar la receta");
     } finally {
@@ -71,24 +69,6 @@ const IngredientsList = ({ ingredientes, sectionRef }) => {
 
   return (
     <section className="space-y-4 relative">
-      {showConfetti && (
-        <Confetti
-          width={window.innerWidth}
-          height={window.innerHeight}
-          recycle={false}
-          numberOfPieces={220}
-          gravity={0.25}
-          initialVelocityX={8}
-          initialVelocityY={15}
-          confettiSource={{
-            x: confettiPos.x,
-            y: confettiPos.y,
-            w: 10,
-            h: 10,
-          }}
-        />
-      )}
-
       <h2 className="text-2xl font-bold text-gray-800">
         ¿Qué tienes en la cocina hoy?
       </h2>
@@ -104,12 +84,12 @@ const IngredientsList = ({ ingredientes, sectionRef }) => {
             </li>
           ))
         ) : (
-          <p className="text-gray-500 italic">No hay ingredientes aún....</p>
+          <p className="text-gray-500 italic">No hay ingredientes aún...</p>
         )}
       </ul>
 
       {ingredientes.length > 3 && (
-        <div ref={sectionRef} className="space-y-2 flex flex-col">
+        <div className="space-y-2 flex flex-col">
           <h3 className="text-lg font-semibold text-gray-700">
             ¿Listo para una nueva receta?
           </h3>
@@ -134,6 +114,27 @@ const IngredientsList = ({ ingredientes, sectionRef }) => {
             </div>
           )}
         </div>
+      )}
+
+      {showConfetti && (
+        <Confetti
+          width={window.innerWidth}
+          height={window.innerHeight}
+          numberOfPieces={150}
+          recycle={false}
+          initialVelocityY={10}
+          initialVelocityX={5}
+          gravity={0.3}
+          wind={0.01}
+          tweenDuration={3000}
+          run={showConfetti}
+          confettiSource={{
+            x: confettiPos.x,
+            y: confettiPos.y,
+            w: 10,
+            h: 10,
+          }}
+        />
       )}
     </section>
   );

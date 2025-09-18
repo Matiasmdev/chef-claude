@@ -104,7 +104,7 @@ const IngredientsList = ({ ingredientes, sectionRef }) => {
             </li>
           ))
         ) : (
-          <p className="text-gray-500 italic">No hay ingredientes aún...</p>
+          <p className="text-gray-500 italic">No hay ingredientes aún....</p>
         )}
       </ul>
 

@@ -40,7 +40,7 @@ const Dashboard = () => {
       <ul className="list-disc pl-5">
         {data.lastLogs.map((log, i) => (
           <li key={i}>
-            {log.userId} - {new Date(log.timestamp).toLocaleString()} - Ingredientes: {log.ingredients.join(", ")}
+            {log.userId} - {new Date(log.timestamp).toLocaleString()} - Ingredientes usados: {log.ingredients.join(", ")}
           </li>
         ))}
       </ul>

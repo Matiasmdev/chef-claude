@@ -5,7 +5,10 @@ import { v4 as uuidv4 } from "uuid";
 import Confetti from "react-confetti";
 import ClaudeRecipe from "./ClaudeRecipe";
 
-const IngredientsList = ({ ingredientes, sectionRef, recaptchaSiteKey }) => {
+// La site key pública de reCAPTCHA
+const RECAPTCHA_SITE_KEY = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
+
+const IngredientsList = ({ ingredientes, sectionRef }) => {
   const [userId, setUserId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [receta, setReceta] = useState("");
@@ -24,13 +27,12 @@ const IngredientsList = ({ ingredientes, sectionRef, recaptchaSiteKey }) => {
 
   const obtenerReceta = async () => {
     if (!userId) return;
-
     setLoading(true);
     setError("");
 
     try {
       // Ejecutar ReCaptcha v3
-      const recaptchaToken = await window.grecaptcha.execute(recaptchaSiteKey, {
+      const recaptchaToken = await window.grecaptcha.execute(RECAPTCHA_SITE_KEY, {
         action: "generate_recipe",
       });
 
@@ -42,7 +44,7 @@ const IngredientsList = ({ ingredientes, sectionRef, recaptchaSiteKey }) => {
 
       setReceta(data.receta);
 
-      // Efecto confeti solo la primera receta
+      // Confetti solo en la primera receta
       const firstRecipeKey = `firstRecipeDone:${userId}`;
       const isFirst = !localStorage.getItem(firstRecipeKey);
       if (isFirst) {

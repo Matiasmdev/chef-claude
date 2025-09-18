@@ -10,9 +10,8 @@ const IngredientsList = ({ ingredientes, sectionRef }) => {
   const [receta, setReceta] = useState("");
   const [error, setError] = useState("");
   const [showConfetti, setShowConfetti] = useState(false);
-  const [showDashboard, setShowDashboard] = useState(false);
-  const titleRef = useRef(null);
-  const secretBtnRef = useRef(null);
+  const [confettiPos, setConfettiPos] = useState({ x: 0, y: 0 });
+  const recetaRef = useRef(null); // referencia al área donde aparece la receta
 
   useEffect(() => {
     let storedId = localStorage.getItem("userId");
@@ -23,32 +22,16 @@ const IngredientsList = ({ ingredientes, sectionRef }) => {
     setUserId(storedId);
   }, []);
 
-  const abrirDashboard = () => setShowDashboard(true);
-  const cerrarDashboard = () => setShowDashboard(false);
-
-  useEffect(() => {
-    // Colocar el botón justo debajo de la letra Q
-    if (titleRef.current && secretBtnRef.current) {
-      const range = document.createRange();
-      const textNode = titleRef.current.firstChild;
-      range.setStart(textNode, 2); // la Q es la segunda letra (índice 2)
-      range.setEnd(textNode, 3);
-      const rect = range.getBoundingClientRect();
-      secretBtnRef.current.style.position = "absolute";
-      secretBtnRef.current.style.left = `${rect.left + window.scrollX}px`;
-      secretBtnRef.current.style.top = `${rect.bottom + window.scrollY}px`;
-      secretBtnRef.current.style.width = "16px";
-      secretBtnRef.current.style.height = "16px";
-      secretBtnRef.current.style.opacity = 0;
-    }
-  }, [titleRef.current]);
-
   const obtenerReceta = async () => {
     if (!userId) return;
     setLoading(true);
     setError("");
 
     try {
+      if (!window.grecaptcha) {
+        throw new Error("reCAPTCHA no se ha cargado aún");
+      }
+
       const recaptchaToken = await window.grecaptcha.execute(
         import.meta.env.VITE_RECAPTCHA_SITE_KEY,
         { action: "generate_recipe" }
@@ -62,15 +45,23 @@ const IngredientsList = ({ ingredientes, sectionRef }) => {
 
       setReceta(data.receta);
 
-      const firstRecipeKey = `firstRecipeDone:${userId}`;
-      const isFirst = !localStorage.getItem(firstRecipeKey);
-      if (isFirst) {
-        setShowConfetti(true);
-        localStorage.setItem(firstRecipeKey, "true");
-        setTimeout(() => setShowConfetti(false), 5000);
-      }
+      // 🟢 Primero hacemos scroll hacia la receta
+      setTimeout(() => {
+        sectionRef?.current?.scrollIntoView({ behavior: "smooth" });
 
-      sectionRef?.current?.scrollIntoView({ behavior: "smooth" });
+        // 🎉 Luego de 600ms (cuando termina el scroll) lanzamos confetti
+        setTimeout(() => {
+          if (recetaRef.current) {
+            const rect = recetaRef.current.getBoundingClientRect();
+            setConfettiPos({
+              x: rect.left + rect.width / 2,
+              y: rect.top + window.scrollY + rect.height / 2,
+            });
+          }
+          setShowConfetti(true);
+          setTimeout(() => setShowConfetti(false), 3000);
+        }, 600);
+      }, 100);
     } catch (err) {
       setError(err.message || "Error desconocido al generar la receta");
     } finally {
@@ -80,12 +71,25 @@ const IngredientsList = ({ ingredientes, sectionRef }) => {
 
   return (
     <section className="space-y-4 relative">
-      {showConfetti && <Confetti width={window.innerWidth} height={window.innerHeight} />}
+      {showConfetti && (
+        <Confetti
+          width={window.innerWidth}
+          height={window.innerHeight}
+          recycle={false}
+          numberOfPieces={220}
+          gravity={0.25}
+          initialVelocityX={8}
+          initialVelocityY={15}
+          confettiSource={{
+            x: confettiPos.x,
+            y: confettiPos.y,
+            w: 10,
+            h: 10,
+          }}
+        />
+      )}
 
-      <h2
-        ref={titleRef}
-        className="text-2xl font-bold text-gray-800"
-      >
+      <h2 className="text-2xl font-bold text-gray-800">
         ¿Qué tienes en la cocina hoy?
       </h2>
 
@@ -125,36 +129,10 @@ const IngredientsList = ({ ingredientes, sectionRef }) => {
           {error && <p className="text-red-600 mt-2 font-medium">{error}</p>}
 
           {receta && (
-            <div className="mt-4">
+            <div ref={recetaRef} className="mt-4">
               <ClaudeRecipe receta={receta} />
             </div>
           )}
-        </div>
-      )}
-
-      {/* Botón secreto */}
-      <button
-        ref={secretBtnRef}
-        onClick={abrirDashboard}
-        title="Botón secreto"
-      />
-
-      {/* Modal del dashboard */}
-      {showDashboard && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-xl w-11/12 max-w-xl relative">
-            <button
-              onClick={cerrarDashboard}
-              className="absolute top-4 right-4 text-gray-500 hover:text-gray-800"
-            >
-              ✖
-            </button>
-            <h2 className="text-xl font-bold mb-4">Dashboard Secreto</h2>
-            <p>Recetas generadas hoy: 10</p>
-            <p>Usuarios activos: 3</p>
-            <p>Uso total: 42 recetas</p>
-            {/* Aquí podés mostrar datos dinámicos desde Redis o API */}
-          </div>
         </div>
       )}
     </section>

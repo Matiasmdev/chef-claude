@@ -1,12 +1,12 @@
 // src/components/IngredientsList.jsx
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { getRecipeFromClaude } from "../utils/ai";
 import { v4 as uuidv4 } from "uuid";
 import Confetti from "react-confetti";
 import ClaudeRecipe from "./ClaudeRecipe";
 
-// La site key pública de reCAPTCHA
-const RECAPTCHA_SITE_KEY = process.env.VITE_RECAPTCHA_SITE_KEY;
+// La site key pública de reCAPTCHA v3
+const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
 
 const IngredientsList = ({ ingredientes, sectionRef }) => {
   const [userId, setUserId] = useState(null);
@@ -31,6 +31,11 @@ const IngredientsList = ({ ingredientes, sectionRef }) => {
     setError("");
 
     try {
+      // ✅ Esperar a que grecaptcha esté listo
+      await new Promise((resolve) => {
+        window.grecaptcha.ready(resolve);
+      });
+
       // Ejecutar ReCaptcha v3
       const recaptchaToken = await window.grecaptcha.execute(RECAPTCHA_SITE_KEY, {
         action: "generate_recipe",
@@ -50,7 +55,7 @@ const IngredientsList = ({ ingredientes, sectionRef }) => {
       if (isFirst) {
         setShowConfetti(true);
         localStorage.setItem(firstRecipeKey, "true");
-        setTimeout(() => setShowConfetti(false), 5000); // dura 5 segundos
+        setTimeout(() => setShowConfetti(false), 5000);
       }
 
       // Scroll automático hacia la receta

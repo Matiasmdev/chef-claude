@@ -5,8 +5,8 @@ import { v4 as uuidv4 } from "uuid";
 import Confetti from "react-confetti";
 import ClaudeRecipe from "./ClaudeRecipe";
 
-// La site key pública de reCAPTCHA v3
-const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
+// La site key pública de reCAPTCHA (solo frontend)
+const RECAPTCHA_SITE_KEY = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
 
 const IngredientsList = ({ ingredientes, sectionRef }) => {
   const [userId, setUserId] = useState(null);
@@ -31,11 +31,6 @@ const IngredientsList = ({ ingredientes, sectionRef }) => {
     setError("");
 
     try {
-      // ✅ Esperar a que grecaptcha esté listo
-      await new Promise((resolve) => {
-        window.grecaptcha.ready(resolve);
-      });
-
       // Ejecutar ReCaptcha v3
       const recaptchaToken = await window.grecaptcha.execute(RECAPTCHA_SITE_KEY, {
         action: "generate_recipe",
@@ -55,17 +50,21 @@ const IngredientsList = ({ ingredientes, sectionRef }) => {
       if (isFirst) {
         setShowConfetti(true);
         localStorage.setItem(firstRecipeKey, "true");
-        setTimeout(() => setShowConfetti(false), 5000);
+        setTimeout(() => setShowConfetti(false), 5000); // dura 5 segundos
       }
-
-      // Scroll automático hacia la receta
-      sectionRef?.current?.scrollIntoView({ behavior: "smooth" });
     } catch (err) {
       setError(err.message || "Error desconocido al generar la receta");
     } finally {
       setLoading(false);
     }
   };
+
+  // Scroll automático después de que se genere la receta
+  useEffect(() => {
+    if (receta && sectionRef?.current) {
+      sectionRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [receta, sectionRef]);
 
   return (
     <section className="space-y-4">

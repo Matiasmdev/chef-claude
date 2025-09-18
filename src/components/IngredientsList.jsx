@@ -5,7 +5,7 @@ import { v4 as uuidv4 } from "uuid";
 import Confetti from "react-confetti";
 import ClaudeRecipe from "./ClaudeRecipe";
 
-const RECAPTCHA_SITE_KEY = "6Ld5G80rAAAAAE40vrqO04MPywTELLvUMs6t_SBF"; // tu site key pública
+const RECAPTCHA_SITE_KEY = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
 
 const IngredientsList = ({ ingredientes, sectionRef }) => {
   const [userId, setUserId] = useState(null);
@@ -13,8 +13,8 @@ const IngredientsList = ({ ingredientes, sectionRef }) => {
   const [receta, setReceta] = useState("");
   const [error, setError] = useState("");
   const [showConfetti, setShowConfetti] = useState(false);
+  const [showDashboardMsg, setShowDashboardMsg] = useState(false);
 
-  // Generar o recuperar userId
   useEffect(() => {
     let storedId = localStorage.getItem("userId");
     if (!storedId) {
@@ -26,12 +26,10 @@ const IngredientsList = ({ ingredientes, sectionRef }) => {
 
   const obtenerReceta = async () => {
     if (!userId) return;
-
     setLoading(true);
     setError("");
 
     try {
-      // Ejecutar reCAPTCHA v3
       const recaptchaToken = await window.grecaptcha.execute(RECAPTCHA_SITE_KEY, {
         action: "generate_recipe",
       });
@@ -44,19 +42,23 @@ const IngredientsList = ({ ingredientes, sectionRef }) => {
 
       setReceta(data.receta);
 
-      // Confetti solo en la primera receta
+      // Confeti + mensaje fade solo en la primera receta
       const firstRecipeKey = `firstRecipeDone:${userId}`;
       const isFirst = !localStorage.getItem(firstRecipeKey);
       if (isFirst) {
         setShowConfetti(true);
+        setShowDashboardMsg(true);
         localStorage.setItem(firstRecipeKey, "true");
-        setTimeout(() => setShowConfetti(false), 5000); // dura 5 segundos
+
+        setTimeout(() => setShowConfetti(false), 5000);
+        setTimeout(() => setShowDashboardMsg(false), 4000);
       }
 
-      // Scroll automático hacia la receta
+      // Scroll automático después de renderizar confeti y mensaje
       setTimeout(() => {
         sectionRef?.current?.scrollIntoView({ behavior: "smooth" });
-      }, 100); // pequeño delay para evitar conflicto con reCAPTCHA
+      }, 50); // esperar 50ms para que DOM se actualice
+
     } catch (err) {
       setError(err.message || "Error desconocido al generar la receta");
     } finally {
@@ -72,10 +74,7 @@ const IngredientsList = ({ ingredientes, sectionRef }) => {
       <ul className="list-disc pl-5 space-y-1">
         {ingredientes.length > 0 ? (
           ingredientes.map((ing) => (
-            <li
-              key={ing}
-              className="text-black py-2 px-4 rounded-md mb-1 hover:bg-gray-100 transition duration-200"
-            >
+            <li key={ing} className="text-black py-2 px-4 rounded-md mb-1 hover:bg-gray-100 transition duration-200">
               {ing}
             </li>
           ))
@@ -86,12 +85,8 @@ const IngredientsList = ({ ingredientes, sectionRef }) => {
 
       {ingredientes.length > 3 && (
         <div ref={sectionRef} className="space-y-2 flex flex-col">
-          <h3 className="text-lg font-semibold text-gray-700">
-            ¿Listo para una nueva receta?
-          </h3>
-          <p className="text-gray-600 text-sm">
-            Crea una nueva receta con tu lista de ingredientes.
-          </p>
+          <h3 className="text-lg font-semibold text-gray-700">¿Listo para una nueva receta?</h3>
+          <p className="text-gray-600 text-sm">Crea una nueva receta con tu lista de ingredientes.</p>
           <button
             onClick={obtenerReceta}
             disabled={loading}
@@ -103,6 +98,12 @@ const IngredientsList = ({ ingredientes, sectionRef }) => {
           </button>
 
           {error && <p className="text-red-600 mt-2 font-medium">{error}</p>}
+
+          {showDashboardMsg && (
+            <p className="text-green-700 mt-2 font-semibold animate-fade">
+              Tu primera receta está lista 🎉
+            </p>
+          )}
 
           {receta && (
             <div className="mt-4">

@@ -8,3 +8,14 @@ body {
     margin:0;
     font-family: Inter, sans-serif;
 }
+/* Fade out animation para el mensaje */
+
+@keyframes fadeOut {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.animate-fade {
+  animation: fadeOut 4s forwards; /* coincide con el setTimeout de 4s en IngredientsList */
+}
+

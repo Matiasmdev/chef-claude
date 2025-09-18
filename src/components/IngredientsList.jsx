@@ -29,6 +29,7 @@ const IngredientsList = ({ ingredientes, sectionRef }) => {
     setError("");
 
     try {
+      // Ejecutar ReCaptcha
       const recaptchaToken = await window.grecaptcha.execute(
         import.meta.env.VITE_RECAPTCHA_SITE_KEY,
         { action: "generate_recipe" }
@@ -40,8 +41,7 @@ const IngredientsList = ({ ingredientes, sectionRef }) => {
         recaptchaToken,
       });
 
-      setReceta(data.receta); // esto dispara el useEffect de confetti
-
+      setReceta(data.receta);
     } catch (err) {
       setError(err.message || "Error desconocido al generar la receta");
     } finally {
@@ -49,24 +49,25 @@ const IngredientsList = ({ ingredientes, sectionRef }) => {
     }
   };
 
-  // Mostrar confetti justo después de que receta se renderizó
   useEffect(() => {
-    if (receta && !loading && recetaRef.current) {
-      // Scroll automático hacia la receta
+    if (receta && recetaRef.current) {
+      // Scroll automático
       recetaRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
 
-      // Posición del confetti en el centro de la receta
-      const rect = recetaRef.current.getBoundingClientRect();
-      setConfettiPos({
-        x: rect.left + rect.width / 2 + window.scrollX,
-        y: rect.top + rect.height / 2 + window.scrollY,
-      });
+      // Esperar un pequeño delay para que el scroll termine antes de mostrar confetti
+      const timeout = setTimeout(() => {
+        const rect = recetaRef.current.getBoundingClientRect();
+        setConfettiPos({
+          x: rect.left + rect.width / 2 + window.scrollX,
+          y: rect.top + rect.height / 2 + window.scrollY,
+        });
+        setShowConfetti(true);
+        setTimeout(() => setShowConfetti(false), 3000);
+      }, 300); // 300ms de espera para scroll
 
-      setShowConfetti(true);
-      const timeout = setTimeout(() => setShowConfetti(false), 3000);
       return () => clearTimeout(timeout);
     }
-  }, [receta, loading]);
+  }, [receta]);
 
   return (
     <section className="space-y-4 relative">

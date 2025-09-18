@@ -6,7 +6,7 @@ import Confetti from "react-confetti";
 import ClaudeRecipe from "./ClaudeRecipe";
 
 // La site key pública de reCAPTCHA
-const RECAPTCHA_SITE_KEY = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
+const RECAPTCHA_SITE_KEY = process.env.VITE_RECAPTCHA_SITE_KEY;
 
 const IngredientsList = ({ ingredientes, sectionRef }) => {
   const [userId, setUserId] = useState(null);

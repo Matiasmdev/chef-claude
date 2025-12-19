@@ -126,7 +126,7 @@ export default async function handler(req, res) {
     }
 
     const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
-    const { ingredients, userId, recaptchaToken } = body;
+    const { ingredients, userId, recaptchaToken, refresh } = body;
 
     // ✅ Validar token secreto
     const secret = req.headers["x-secret-key"];
@@ -198,7 +198,7 @@ export default async function handler(req, res) {
       console.error("Error en Redis (cache):", err);
     }
 
-    if (!receta) {
+    if (!receta || refresh) {
       try {
         receta = await getRecipeFromClaude(ingredients);
       } catch (err) {

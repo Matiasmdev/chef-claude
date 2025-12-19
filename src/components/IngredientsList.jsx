@@ -51,10 +51,12 @@ const IngredientsList = ({ ingredientes, obtenerReceta, loading, errorApi, recet
             </div>
 
             <button
-              onClick={obtenerReceta}
+              onClick={() => obtenerReceta(receta ? true : false)}
               disabled={loading}
               className={`relative group overflow-hidden w-full sm:w-auto px-10 py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all duration-300 ${loading
-                  ? "bg-gray-800 text-gray-500 cursor-not-allowed"
+                ? "bg-gray-800 text-gray-500 cursor-not-allowed"
+                : receta
+                  ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:from-amber-400 hover:to-orange-400 glow-amber active:scale-95"
                   : "bg-white text-black hover:bg-amber-500 hover:text-black glow-cyan active:scale-95"
                 }`}
             >
@@ -63,6 +65,11 @@ const IngredientsList = ({ ingredientes, obtenerReceta, loading, errorApi, recet
                   <>
                     <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
                     Procesando...
+                  </>
+                ) : receta ? (
+                  <>
+                    <span>✨</span>
+                    Generar Otra Receta
                   </>
                 ) : (
                   <>

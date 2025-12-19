@@ -1,5 +1,5 @@
 // src/utils/ai.js
-export async function getRecipeFromClaude({ ingredients, userId, recaptchaToken }) {
+export async function getRecipeFromClaude({ ingredients, userId, recaptchaToken, refresh = false }) {
   if (!ingredients || !Array.isArray(ingredients) || ingredients.length === 0) {
     throw new Error("Se requieren al menos 1 ingrediente");
   }
@@ -20,7 +20,7 @@ export async function getRecipeFromClaude({ ingredients, userId, recaptchaToken 
       "Content-Type": "application/json",
       "x-secret-key": secretKey,
     },
-    body: JSON.stringify({ ingredients, userId, recaptchaToken }),
+    body: JSON.stringify({ ingredients, userId, recaptchaToken, refresh }),
   });
 
   if (!res.ok) {

@@ -149,7 +149,7 @@ const Main = () => {
     setNewIngredient("");
   };
 
-  const obtenerReceta = async () => {
+  const obtenerReceta = async (refresh = false) => {
     if (ingredientes.length < 4 || !userId) return;
     setLoading(true);
     setErrorApi("");
@@ -168,7 +168,8 @@ const Main = () => {
       const data = await getRecipeFromClaude({
         ingredients: ingredientes,
         userId,
-        recaptchaToken
+        recaptchaToken,
+        refresh
       });
 
       setReceta(data.receta);

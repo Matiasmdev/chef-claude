@@ -79,63 +79,131 @@ async function getRecipeFromClaude(ingredientsArr) {
 
 // Validar ReCaptcha v3 (solo backend)
 async function verifyRecaptcha(token) {
-  const secretKey = process.env.RECAPTCHA_SECRET_KEY; // backend
+  const secretKey = process.env.RECAPTCHA_SECRET_KEY;
   const url = `https://www.google.com/recaptcha/api/siteverify?secret=${secretKey}&response=${token}`;
-  const res = await fetch(url, { method: "POST" });
-  const data = await res.json();
-  return data.success && data.score && data.score >= 0.5;
+
+  try {
+    const res = await fetch(url, { method: "POST" });
+    const data = await res.json();
+
+    console.log("ReCAPTCHA verification result:", data);
+
+    // Si success es false, o si el score es bajo (threshold 0.3 para desarrollo)
+    // Nota: localhost a veces devuelve scores bajos o fallos si no está configurado en el admin console
+    return data.success && (data.score === undefined || data.score >= 0.3);
+  } catch (err) {
+    console.error("Error fetching ReCAPTCHA verification:", err);
+    throw err;
+  }
 }
 
 export default async function handler(req, res) {
+  // Configuración de CORS si fuera necesario (opcional)
+  // res.setHeader('Access-Control-Allow-Origin', '*');
+
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  // Verificar variables de entorno críticas
+  const requiredEnv = [
+    "ANTHROPIC_CLAUDE_API_KEY",
+    "RECAPTCHA_SECRET_KEY",
+    "SECRET_FRONTEND_KEY",
+    "UPSTASH_REDIS_REST_URL",
+    "UPSTASH_REDIS_REST_TOKEN"
+  ];
+  const missingEnv = requiredEnv.filter(env => !process.env[env]);
+  if (missingEnv.length > 0) {
+    console.error("Faltan variables de entorno:", missingEnv);
+    return res.status(500).json({ error: `Configuración de servidor incompleta. Faltan: ${missingEnv.join(", ")}` });
   }
 
   try {
     const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
     const { ingredients, userId, recaptchaToken } = body;
 
-    // ✅ Validar token secreto inventado por nosotros
+    // ✅ Validar token secreto
     const secret = req.headers["x-secret-key"];
     if (secret !== process.env.SECRET_FRONTEND_KEY) {
-      return res.status(401).json({ error: "Unauthorized" });
+      return res.status(401).json({ error: "No autorizado: x-secret-key inválida" });
     }
 
     if (!Array.isArray(ingredients) || ingredients.length === 0) {
-      return res.status(400).json({ error: "Ingredientes inválidos" });
+      return res.status(400).json({ error: "Ingredientes inválidos o vacíos" });
     }
 
     if (!userId) {
       return res.status(400).json({ error: "userId es requerido" });
     }
 
-    if (!recaptchaToken || !(await verifyRecaptcha(recaptchaToken))) {
-      return res.status(403).json({ error: "Captcha inválido" });
+    if (!recaptchaToken) {
+      return res.status(400).json({ error: "recaptchaToken es requerido" });
+    }
+
+    // Verificar ReCaptcha
+    let isHuman = false;
+    try {
+      isHuman = await verifyRecaptcha(recaptchaToken);
+    } catch (err) {
+      console.error("Error validando reCAPTCHA:", err);
+      // No bloqueamos si falla la conexión a Google por ahora, pero lo logueamos
+      // O podemos ser estrictos:
+      return res.status(500).json({ error: "Error de conexión al validar ReCAPTCHA" });
+    }
+
+    if (!isHuman) {
+      return res.status(403).json({ error: "Captcha inválido o insuficiente puntaje" });
     }
 
     // 🔹 Rate limit: 3 recetas / 24h
     const key = `rate:${userId}`;
-    const usage = parseInt(await redis.get(key)) || 0;
-    if (usage >= 3) return res.status(429).json({ error: "Has alcanzado el límite de 3 recetas por 24 horas" });
+    let usage = 0;
+    try {
+      usage = parseInt(await redis.get(key)) || 0;
+    } catch (err) {
+      console.error("Error en Redis (rate limit):", err);
+      // Continuamos aunque Redis falle? Depende de la política.
+    }
+
+    if (usage >= 3) {
+      return res.status(429).json({ error: "Has alcanzado el límite de 3 recetas por 24 horas" });
+    }
+
     if (usage === 0) await redis.set(key, 1, { ex: 86400 }); // 24h
     else await redis.incr(key);
 
     // 🔹 Cache de recetas 5 minutos
     const cacheKey = `recipe:${ingredients.join(",").toLowerCase()}`;
-    let receta = await redis.get(cacheKey);
+    let receta = null;
+    try {
+      receta = await redis.get(cacheKey);
+    } catch (err) {
+      console.error("Error en Redis (cache):", err);
+    }
+
     if (!receta) {
-      receta = await getRecipeFromClaude(ingredients);
-      await redis.set(cacheKey, receta, { ex: 300 }); // 5 minutos
+      try {
+        receta = await getRecipeFromClaude(ingredients);
+        await redis.set(cacheKey, receta, { ex: 300 }); // 5 minutos
+      } catch (err) {
+        console.error("Error al llamar a Anthropic:", err);
+        return res.status(502).json({ error: "Error al generar la receta con la IA" });
+      }
     }
 
     // 🔹 Log para dashboard
-    const logKey = `log:${userId}`;
-    await redis.lpush(logKey, JSON.stringify({ ingredients, timestamp: Date.now() }));
+    try {
+      const logKey = `log:${userId}`;
+      await redis.lpush(logKey, JSON.stringify({ ingredients, timestamp: Date.now() }));
+    } catch (err) {
+      console.error("Error al guardar log en Redis:", err);
+    }
 
     res.status(200).json({ receta });
   } catch (err) {
-    console.error("Error en /api/generate-recipe:", err);
-    const message = typeof err === "string" ? err : err?.message || "Error desconocido en serverless";
+    console.error("Error genérico en /api/generate-recipe:", err);
+    const message = typeof err === "string" ? err : err?.message || "Error desconocido en el servidor";
     res.status(500).json({ error: message });
   }
 }

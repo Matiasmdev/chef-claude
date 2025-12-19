@@ -23,16 +23,19 @@ export async function getRecipeFromClaude({ ingredients, userId, recaptchaToken 
     body: JSON.stringify({ ingredients, userId, recaptchaToken }),
   });
 
-  let data;
-  try {
-    data = await res.json(); // intentar parsear JSON
-  } catch {
-    throw new Error("El servidor no devolvió un JSON válido");
-  }
-
   if (!res.ok) {
-    throw new Error(data.error || "Error desconocido al generar la receta");
+    let errorData;
+    try {
+      errorData = await res.json();
+    } catch (e) {
+      throw new Error(`Error del servidor (${res.status}): No se pudo obtener detalle del error.`);
+    }
+    throw new Error(errorData.error || `Error del servidor (${res.status})`);
   }
 
-  return data;
+  try {
+    return await res.json();
+  } catch (e) {
+    throw new Error("El servidor devolvió una respuesta inválida (no es JSON)");
+  }
 }

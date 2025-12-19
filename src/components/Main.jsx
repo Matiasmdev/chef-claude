@@ -105,25 +105,34 @@ const forbidden = [
 ];
 
 
+import { v4 as uuidv4 } from "uuid";
+
 const Main = () => {
   const [ingredientes, setIngredientes] = useState([]);
   const [newIngredient, setNewIngredient] = useState("");
-  const [error, setError] = useState("");
+  const [errorHeader, setErrorHeader] = useState("");
   const [receta, setReceta] = useState("");
   const [loading, setLoading] = useState(false);
+  const [errorApi, setErrorApi] = useState("");
+  const [userId, setUserId] = useState(null);
   const recetaSection = useRef(null);
 
+  // Generar o cargar userId
   useEffect(() => {
-    if (receta && recetaSection.current) {
-      recetaSection.current.scrollIntoView({ behavior: "smooth" });
+    let storedId = localStorage.getItem("userId");
+    if (!storedId) {
+      storedId = uuidv4();
+      localStorage.setItem("userId", storedId);
     }
-  }, [receta]);
+    setUserId(storedId);
+  }, []);
 
-  // Valida que sea un ingrediente de comida
+
+  // Valida que sea un ingrediente de cocina
   const isValidIngredient = (ing) => {
     const clean = ing.trim().toLowerCase();
     if (forbidden.includes(clean)) return false;
-    // Solo letras y espacios (aprox. evita números y símbolos)
+    // Solo letras y espacios
     return /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/.test(clean);
   };
 
@@ -132,22 +141,40 @@ const Main = () => {
     const ing = newIngredient;
 
     if (!isValidIngredient(ing)) {
-      setError("Escribe algún ingrediente de cocina");
+      setErrorHeader("Escribe algún ingrediente de cocina");
       return;
     }
-    setError("");
+    setErrorHeader("");
     setIngredientes((prev) => [...prev, ing.trim()]);
     setNewIngredient("");
   };
 
   const obtenerReceta = async () => {
-    if (ingredientes.length < 4) return;
+    if (ingredientes.length < 4 || !userId) return;
     setLoading(true);
+    setErrorApi("");
+
     try {
-      const markdown = await getRecipeFromClaude(ingredientes);
-      setReceta(markdown);
+      // ReCAPTCHA token (v3)
+      if (!window.grecaptcha) {
+        throw new Error("reCAPTCHA no cargado correctamente");
+      }
+
+      const recaptchaToken = await window.grecaptcha.execute(
+        import.meta.env.VITE_RECAPTCHA_SITE_KEY,
+        { action: "generate_recipe" }
+      );
+
+      const data = await getRecipeFromClaude({
+        ingredients: ingredientes,
+        userId,
+        recaptchaToken
+      });
+
+      setReceta(data.receta);
     } catch (err) {
       console.error(err);
+      setErrorApi(err.message || "Error al conectar con el servidor");
     } finally {
       setLoading(false);
     }
@@ -155,9 +182,8 @@ const Main = () => {
 
   return (
     <main
-      className={`bg-gradient-to-br from-yellow-100 to-yellow-200 flex flex-col items-center p-4 ${
-        receta ? "min-h-fit" : "min-h-[calc(100vh-5rem-2rem-0rem)]"
-      } overflow-y-auto`}
+      className={`bg-gradient-to-br from-yellow-100 to-yellow-200 flex flex-col items-center p-4 ${receta ? "min-h-fit" : "min-h-[calc(100vh-5rem-2rem-0rem)]"
+        } overflow-y-auto`}
     >
       <div className="flex flex-col items-center justify-center min-h-[80vh] w-full max-w-2xl space-y-8">
         <KitchenQuestion />
@@ -184,7 +210,7 @@ const Main = () => {
             </button>
           </form>
 
-          {error && <p className="text-red-600 mt-2">{error}</p>}
+          {errorHeader && <p className="text-red-600 mt-2">{errorHeader}</p>}
 
           <p className="mt-2 text-center text-sm text-gray-700">
             Por favor agrega al menos 4 ingredientes
@@ -194,23 +220,11 @@ const Main = () => {
             <IngredientsList
               ingredientes={ingredientes}
               obtenerReceta={obtenerReceta}
-              sectionRef={recetaSection}
+              loading={loading}
+              errorApi={errorApi}
+              receta={receta}
+              recetaRef={recetaSection}
             />
-          )}
-
-          {loading && (
-            <div className="flex flex-col items-center my-4">
-              <div className="w-10 h-10 border-4 border-gray-300 border-t-4 border-t-amber-600 rounded-full animate-spin"></div>
-              <p className="mt-2 text-gray-700">
-                El chef está preparando tu receta...
-              </p>
-            </div>
-          )}
-
-          {receta && (
-            <div ref={recetaSection}>
-              <ClaudeRecipe receta={receta} />
-            </div>
           )}
         </div>
       </div>

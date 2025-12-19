@@ -8,7 +8,7 @@ const Dashboard = () => {
     const fetchDashboard = async () => {
       try {
         const res = await fetch("/api/dashboard", {
-          headers: { "x-secret-key": process.env.SECRET_FRONTEND_KEY }
+          headers: { "x-secret-key": import.meta.env.VITE_SECRET_FRONTEND_KEY }
         });
 
         if (!res.ok) throw new Error("No autorizado o error al cargar dashboard");

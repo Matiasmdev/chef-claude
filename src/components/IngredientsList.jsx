@@ -1,54 +1,9 @@
-import React, { useState, useEffect, useRef } from "react";
-import { getRecipeFromClaude } from "../utils/ai";
-import { v4 as uuidv4 } from "uuid";
+import React, { useState, useEffect } from "react";
 import Confetti from "react-confetti";
 import ClaudeRecipe from "./ClaudeRecipe";
 
-const IngredientsList = ({ ingredientes, sectionRef }) => {
-  const [userId, setUserId] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [receta, setReceta] = useState("");
-  const [error, setError] = useState("");
+const IngredientsList = ({ ingredientes, obtenerReceta, loading, errorApi, receta, recetaRef }) => {
   const [showConfetti, setShowConfetti] = useState(false);
-
-  const recetaRef = useRef(null);
-
-  // Generar o cargar userId
-  useEffect(() => {
-    let storedId = localStorage.getItem("userId");
-    if (!storedId) {
-      storedId = uuidv4();
-      localStorage.setItem("userId", storedId);
-    }
-    setUserId(storedId);
-  }, []);
-
-  const obtenerReceta = async () => {
-    if (!userId) return;
-    setLoading(true);
-    setError("");
-
-    try {
-      // ReCAPTCHA token
-      const recaptchaToken = await window.grecaptcha.execute(
-        import.meta.env.VITE_RECAPTCHA_SITE_KEY,
-        { action: "generate_recipe" }
-      );
-
-      // Generar receta
-      const data = await getRecipeFromClaude({
-        ingredients: ingredientes,
-        userId,
-        recaptchaToken,
-      });
-
-      setReceta(data.receta);
-    } catch (err) {
-      setError(err.message || "Error desconocido al generar la receta");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // Scroll y confetti después de renderizar la receta
   useEffect(() => {
@@ -61,7 +16,7 @@ const IngredientsList = ({ ingredientes, sectionRef }) => {
       const timeout = setTimeout(() => setShowConfetti(false), 4000);
       return () => clearTimeout(timeout);
     }
-  }, [receta]);
+  }, [receta, recetaRef]);
 
   return (
     <section className="space-y-4 relative">
@@ -92,9 +47,8 @@ const IngredientsList = ({ ingredientes, sectionRef }) => {
           <button
             onClick={obtenerReceta}
             disabled={loading}
-            className={`mt-2 w-full sm:w-auto bg-amber-600 text-white py-3 px-6 rounded-lg hover:bg-amber-700 focus:ring-2 focus:ring-amber-500 transition duration-300 font-medium ${
-              loading ? "opacity-50 cursor-not-allowed" : ""
-            }`}
+            className={`mt-2 w-full sm:w-auto bg-amber-600 text-white py-3 px-6 rounded-lg hover:bg-amber-700 focus:ring-2 focus:ring-amber-500 transition duration-300 font-medium ${loading ? "opacity-50 cursor-not-allowed" : ""
+              }`}
           >
             {loading ? (
               <span className="flex items-center justify-center gap-2">
@@ -125,7 +79,7 @@ const IngredientsList = ({ ingredientes, sectionRef }) => {
             )}
           </button>
 
-          {error && <p className="text-red-600 mt-2 font-medium">{error}</p>}
+          {errorApi && <p className="text-red-600 mt-2 font-medium">{errorApi}</p>}
 
           {receta && (
             <div ref={recetaRef} className="mt-4 relative">

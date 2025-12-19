@@ -113,18 +113,18 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: `Configuración de servidor incompleta. Faltan: ${missingEnv.join(", ")}` });
   }
 
-  // Inicializar clientes
-  if (!anthropic) {
-    anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_CLAUDE_API_KEY });
-  }
-  if (!redis) {
-    redis = new Redis({
-      url: process.env.UPSTASH_REDIS_REST_URL,
-      token: process.env.UPSTASH_REDIS_REST_TOKEN,
-    });
-  }
-
   try {
+    // Inicializar clientes
+    if (!anthropic) {
+      anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_CLAUDE_API_KEY });
+    }
+    if (!redis) {
+      redis = new Redis({
+        url: process.env.UPSTASH_REDIS_REST_URL,
+        token: process.env.UPSTASH_REDIS_REST_TOKEN,
+      });
+    }
+
     const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
     const { ingredients, userId, recaptchaToken } = body;
 

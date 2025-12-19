@@ -1,7 +1,6 @@
 // api/generate-recipe.js
 import { Anthropic } from "@anthropic-ai/sdk";
 import { Redis } from "@upstash/redis";
-import fetch from "node-fetch"; // necesario si Vercel no tiene fetch global
 
 const SYSTEM_PROMPT = `
 Eres un asistente que recibe una lista de ingredientes de un usuario y sugiere una receta que puede preparar  
@@ -39,14 +38,9 @@ Al final de tu respuesta, incluye exactamente **una** frase de cierre, elegida *
 - Disfrútalo.
 `;
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_CLAUDE_API_KEY, // backend
-});
-
-const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN,
-});
+// Las instancias se inicializarán dentro del handler para evitar errores si faltan las env vars al cargar el módulo
+let anthropic;
+let redis;
 
 async function getRecipeFromClaude(ingredientsArr) {
   const ingredientsString = ingredientsArr.join(", ");
@@ -83,8 +77,8 @@ async function verifyRecaptcha(token) {
   const url = `https://www.google.com/recaptcha/api/siteverify?secret=${secretKey}&response=${token}`;
 
   try {
-    const res = await fetch(url, { method: "POST" });
-    const data = await res.json();
+    const response = await fetch(url, { method: "POST" });
+    const data = await response.json();
 
     console.log("ReCAPTCHA verification result:", data);
 
@@ -119,6 +113,17 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: `Configuración de servidor incompleta. Faltan: ${missingEnv.join(", ")}` });
   }
 
+  // Inicializar clientes
+  if (!anthropic) {
+    anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_CLAUDE_API_KEY });
+  }
+  if (!redis) {
+    redis = new Redis({
+      url: process.env.UPSTASH_REDIS_REST_URL,
+      token: process.env.UPSTASH_REDIS_REST_TOKEN,
+    });
+  }
+
   try {
     const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
     const { ingredients, userId, recaptchaToken } = body;
@@ -141,18 +146,25 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "recaptchaToken es requerido" });
     }
 
-    // Verificar ReCaptcha
+    // Verificar ReCaptcha (con opción de bypass para desarrollo)
+    const host = req.headers.host || "";
+    const isLocal = host.includes("localhost") || host.includes("127.0.0.1");
+
     let isHuman = false;
-    try {
-      isHuman = await verifyRecaptcha(recaptchaToken);
-    } catch (err) {
-      console.error("Error validando reCAPTCHA:", err);
-      // No bloqueamos si falla la conexión a Google por ahora, pero lo logueamos
-      // O podemos ser estrictos:
-      return res.status(500).json({ error: "Error de conexión al validar ReCAPTCHA" });
+    if (process.env.BYPASS_RECAPTCHA === "true" || isLocal) {
+      console.log(`⚠️ reCAPTCHA bypass activado (Local: ${isLocal}, Env: ${process.env.BYPASS_RECAPTCHA})`);
+      isHuman = true;
+    } else {
+      try {
+        isHuman = await verifyRecaptcha(recaptchaToken);
+      } catch (err) {
+        console.error("Error validando reCAPTCHA:", err);
+        return res.status(500).json({ error: "Error de conexión al validar ReCAPTCHA" });
+      }
     }
 
     if (!isHuman) {
+      console.log("❌ Validacion de Captcha falló:", { isLocal, host, bypass: process.env.BYPASS_RECAPTCHA });
       return res.status(403).json({ error: "Captcha inválido o insuficiente puntaje" });
     }
 
@@ -170,8 +182,12 @@ export default async function handler(req, res) {
       return res.status(429).json({ error: "Has alcanzado el límite de 3 recetas por 24 horas" });
     }
 
-    if (usage === 0) await redis.set(key, 1, { ex: 86400 }); // 24h
-    else await redis.incr(key);
+    try {
+      if (usage === 0) await redis.set(key, 1, { ex: 86400 }); // 24h
+      else await redis.incr(key);
+    } catch (err) {
+      console.error("Error al actualizar rate limit en Redis:", err);
+    }
 
     // 🔹 Cache de recetas 5 minutos
     const cacheKey = `recipe:${ingredients.join(",").toLowerCase()}`;
@@ -185,10 +201,15 @@ export default async function handler(req, res) {
     if (!receta) {
       try {
         receta = await getRecipeFromClaude(ingredients);
-        await redis.set(cacheKey, receta, { ex: 300 }); // 5 minutos
       } catch (err) {
         console.error("Error al llamar a Anthropic:", err);
         return res.status(502).json({ error: "Error al generar la receta con la IA" });
+      }
+
+      try {
+        await redis.set(cacheKey, receta, { ex: 300 }); // 5 minutos
+      } catch (err) {
+        console.error("Error al guardar cache en Redis:", err);
       }
     }
 

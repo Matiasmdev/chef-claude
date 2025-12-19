@@ -3,6 +3,7 @@ import KitchenQuestion from "./KitchenQuestion";
 import IngredientsList from "./IngredientsList";
 import ClaudeRecipe from "./ClaudeRecipe";
 import { getRecipeFromClaude } from "../utils/ai";
+import { v4 as uuidv4 } from "uuid";
 
 // Lista de términos no comestibles
 const forbidden = [
@@ -105,7 +106,6 @@ const forbidden = [
 ];
 
 
-import { v4 as uuidv4 } from "uuid";
 
 const Main = () => {
   const [ingredientes, setIngredientes] = useState([]);

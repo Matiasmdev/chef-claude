@@ -149,6 +149,13 @@ const Main = () => {
     setNewIngredient("");
   };
 
+  const resetRecipe = () => {
+    setIngredientes([]);
+    setReceta("");
+    setErrorApi("");
+    setNewIngredient("");
+  };
+
   const obtenerReceta = async (refresh = false) => {
     if (ingredientes.length < 4 || !userId) return;
     setLoading(true);
@@ -240,6 +247,7 @@ const Main = () => {
               <IngredientsList
                 ingredientes={ingredientes}
                 obtenerReceta={obtenerReceta}
+                resetRecipe={resetRecipe}
                 loading={loading}
                 errorApi={errorApi}
                 receta={receta}

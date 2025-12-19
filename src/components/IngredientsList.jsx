@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import Confetti from "react-confetti";
 import ClaudeRecipe from "./ClaudeRecipe";
 
-const IngredientsList = ({ ingredientes, obtenerReceta, loading, errorApi, receta, recetaRef }) => {
+const IngredientsList = ({ ingredientes, obtenerReceta, resetRecipe, loading, errorApi, receta, recetaRef }) => {
   const [showConfetti, setShowConfetti] = useState(false);
 
   // Scroll y confetti después de renderizar la receta
@@ -50,35 +50,40 @@ const IngredientsList = ({ ingredientes, obtenerReceta, loading, errorApi, recet
               <p className="text-xs text-gray-400">Nuestro Chef IA está listo para crear magia.</p>
             </div>
 
-            <button
-              onClick={() => obtenerReceta(receta ? true : false)}
-              disabled={loading}
-              className={`relative group overflow-hidden w-full sm:w-auto px-10 py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all duration-300 ${loading
-                ? "bg-gray-800 text-gray-500 cursor-not-allowed"
-                : receta
-                  ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:from-amber-400 hover:to-orange-400 glow-amber active:scale-95"
+            {!receta ? (
+              <button
+                onClick={() => obtenerReceta(false)}
+                disabled={loading}
+                className={`relative group overflow-hidden w-full sm:w-auto px-10 py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all duration-300 ${loading
+                  ? "bg-gray-800 text-gray-500 cursor-not-allowed"
                   : "bg-white text-black hover:bg-amber-500 hover:text-black glow-cyan active:scale-95"
-                }`}
-            >
-              <div className="relative z-10 flex items-center justify-center gap-3">
-                {loading ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
-                    Procesando...
-                  </>
-                ) : receta ? (
-                  <>
-                    <span>✨</span>
-                    Generar Otra Receta
-                  </>
-                ) : (
-                  <>
-                    <span>🚀</span>
-                    Crear Receta
-                  </>
-                )}
-              </div>
-            </button>
+                  }`}
+              >
+                <div className="relative z-10 flex items-center justify-center gap-3">
+                  {loading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+                      Procesando...
+                    </>
+                  ) : (
+                    <>
+                      <span>🚀</span>
+                      Crear Receta
+                    </>
+                  )}
+                </div>
+              </button>
+            ) : (
+              <button
+                onClick={resetRecipe}
+                className="relative group overflow-hidden w-full sm:w-auto px-10 py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all duration-300 bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:from-cyan-400 hover:to-blue-400 glow-cyan active:scale-95"
+              >
+                <div className="relative z-10 flex items-center justify-center gap-3">
+                  <span>🔄</span>
+                  Nueva Receta
+                </div>
+              </button>
+            )}
           </div>
 
           {errorApi && (

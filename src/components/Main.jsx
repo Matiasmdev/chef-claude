@@ -181,50 +181,70 @@ const Main = () => {
   };
 
   return (
-    <main
-      className={`bg-gradient-to-br from-yellow-100 to-yellow-200 flex flex-col items-center p-4 ${receta ? "min-h-fit" : "min-h-[calc(100vh-5rem-2rem-0rem)]"
-        } overflow-y-auto`}
-    >
-      <div className="flex flex-col items-center justify-center min-h-[80vh] w-full max-w-2xl space-y-8">
-        <KitchenQuestion />
+    <main className="flex flex-col items-center p-4 sm:p-8 pt-24 pb-32 animate-fade-in min-h-screen">
+      <div className="flex flex-col items-center w-full max-w-2xl space-y-12 mb-12">
+        <div className="animate-float">
+          <KitchenQuestion />
+        </div>
 
-        <div className="w-full bg-white shadow-lg rounded-xl p-6 transition-all duration-300">
+        <div className="w-full glass-morphism rounded-3xl p-8 sm:p-10 transition-all duration-500 hover:border-white/20">
+          <div className="flex flex-col space-y-2 mb-8 text-center sm:text-left">
+            <h2 className="text-2xl font-bold tracking-tight text-white drop-shadow-sm">Panel de Ingredientes</h2>
+            <p className="text-sm text-gray-400">¿Qué tenemos en la heladera hoy?</p>
+          </div>
+
           <form
             onSubmit={agregarIngrediente}
             className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:space-x-4 sm:space-y-0"
           >
-            <input
-              value={newIngredient}
-              onChange={(e) => setNewIngredient(e.target.value)}
-              name="ingrediente"
-              type="text"
-              placeholder="Ejemplo: Orégano"
-              aria-label="Agrega ingrediente"
-              className="flex-1 p-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 transition placeholder-gray-400"
-            />
+            <div className="relative flex-1 group">
+              <input
+                value={newIngredient}
+                onChange={(e) => setNewIngredient(e.target.value)}
+                name="ingrediente"
+                type="text"
+                placeholder="Ej. Orégano, Pollo, Queso..."
+                aria-label="Agrega ingrediente"
+                className="w-full bg-white/5 border border-white/10 p-4 pl-5 rounded-2xl shadow-inner focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:bg-white/10 transition-all duration-300 placeholder-white/20 text-white"
+              />
+              <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none opacity-20 group-focus-within:opacity-50 transition-opacity">
+                🍳
+              </div>
+            </div>
             <button
               type="submit"
-              className="w-full sm:w-auto bg-black text-white px-6 py-3 rounded-lg hover:bg-neutral-600 focus:ring-2 focus:ring-green-500 transition font-medium"
+              className="w-full sm:w-auto bg-amber-500 hover:bg-amber-400 text-black px-8 py-4 rounded-2xl glow-amber shadow-lg active:scale-95 transition-all duration-200 font-bold flex items-center justify-center gap-2 group"
             >
-              + Agregar
+              <span className="group-hover:translate-x-0.5 transition-transform">+</span>
+              Agregar
             </button>
           </form>
 
-          {errorHeader && <p className="text-red-600 mt-2">{errorHeader}</p>}
+          {errorHeader && (
+            <div className="mt-4 p-3 bg-red-500/10 border border-red-500/20 rounded-xl">
+              <p className="text-red-400 text-sm text-center font-medium">⚠️ {errorHeader}</p>
+            </div>
+          )}
 
-          <p className="mt-2 text-center text-sm text-gray-700">
-            Por favor agrega al menos 4 ingredientes
-          </p>
+          <div className="mt-6 flex items-center justify-center gap-2">
+            <div className="h-px bg-white/5 flex-1"></div>
+            <p className="text-[10px] uppercase tracking-widest text-gray-500 font-black">
+              Mínimo 4 ingredientes
+            </p>
+            <div className="h-px bg-white/5 flex-1"></div>
+          </div>
 
           {ingredientes.length > 0 && (
-            <IngredientsList
-              ingredientes={ingredientes}
-              obtenerReceta={obtenerReceta}
-              loading={loading}
-              errorApi={errorApi}
-              receta={receta}
-              recetaRef={recetaSection}
-            />
+            <div className="mt-10 animate-fade-in">
+              <IngredientsList
+                ingredientes={ingredientes}
+                obtenerReceta={obtenerReceta}
+                loading={loading}
+                errorApi={errorApi}
+                receta={receta}
+                recetaRef={recetaSection}
+              />
+            </div>
           )}
         </div>
       </div>

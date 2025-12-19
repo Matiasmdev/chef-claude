@@ -24,21 +24,21 @@ export async function getRecipeFromClaude({ ingredients, userId, recaptchaToken 
   });
 
   if (!res.ok) {
+    const resClon = res.clone(); // Clonamos para poder leerlo como JSON o como Texto
     const contentType = res.headers.get("content-type");
+
     if (contentType && contentType.includes("application/json")) {
-      let errorData;
       try {
-        errorData = await res.json();
+        const errorData = await resClon.json();
         throw new Error(errorData.error || `Error del servidor (${res.status})`);
       } catch (e) {
-        if (e.message.includes("Error del servidor")) throw e;
+        // Si no era JSON válido o no tenía el campo error, seguimos al texto
       }
     }
 
-    // Si no es JSON o falló el parseo, leemos como texto
     const errorText = await res.text();
     console.error("Error del servidor (no-JSON):", errorText);
-    throw new Error(`Error ${res.status}: El servidor no respondió con JSON. Revisa los logs de Vercel. Detalle breve: ${errorText.substring(0, 100)}`);
+    throw new Error(`Error ${res.status}: ${errorText.substring(0, 100)}...`);
   }
 
   try {
